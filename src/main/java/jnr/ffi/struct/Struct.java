@@ -25,8 +25,10 @@
  * freely granted, provided that this notice is preserved.
  */
 
-package jnr.ffi;
+package jnr.ffi.struct;
 
+import jnr.ffi.*;
+import jnr.ffi.Runtime;
 import jnr.ffi.provider.ParameterFlags;
 import jnr.ffi.provider.jffi.ArrayMemoryIO;
 import jnr.ffi.util.EnumMapper;
@@ -71,6 +73,10 @@ public abstract class Struct {
 
         public final jnr.ffi.Pointer getMemory() {
             return getMemory(ParameterFlags.TRANSIENT);
+        }
+
+        public final Runtime getRuntime() {
+            return runtime;
         }
 
         final boolean isDirect() {
@@ -144,7 +150,7 @@ public abstract class Struct {
     }
 
     public final Runtime getRuntime() {
-        return __info.runtime;
+        return __info.getRuntime();
     }
 
     /**
@@ -233,29 +239,6 @@ public abstract class Struct {
         return sb.toString();
     }
 
-    public static final class Offset extends java.lang.Number {
-        private final int offset;
-        public Offset(int offset) {
-            this.offset = offset;
-        }
-        @Override
-        public int intValue() {
-            return offset;
-        }
-        @Override
-        public long longValue() {
-            return offset;
-        }
-        @Override
-        public float floatValue() {
-            return offset;
-        }
-        @Override
-        public double doubleValue() {
-            return offset;
-        }
-    }
-
     public static final class Alignment extends Number {
         private final int alignment;
 
@@ -285,32 +268,6 @@ public abstract class Struct {
     }
 
     /**
-     * Interface all Struct members must implement.
-     */
-    protected abstract class Member {
-        /**
-         * Gets the {@code Struct} this {@code Member} is a member of.
-         *
-         * @return a {@code Struct}.
-         */
-        abstract Struct struct();
-
-        /**
-         * Gets the memory object used to store this {@code Member}
-         *
-         * @return a {@code Pointer}
-         */
-        abstract jnr.ffi.Pointer getMemory();
-
-        /**
-         * Gets the offset within the structure for this field.
-         *
-         * @return the offset within the structure for this field.
-         */
-        abstract long offset();
-    }
-
-    /**
      * Starts an array construction session
      */
     protected final void arrayBegin() {
@@ -325,14 +282,14 @@ public abstract class Struct {
     }
 
     /**
-     * Creates an array of <tt>Member</tt> instances.
+     * Creates an array of <tt>Field</tt> instances.
      *
-     * @param <T> The type of the <tt>Member</tt> subclass to create.
+     * @param <T> The type of the <tt>Field</tt> subclass to create.
      * @param array the array to store the instances in
      * @return the array that was passed in
      */
     @SuppressWarnings("unchecked")
-    protected <T extends Member> T[] array(T[] array) {
+    protected <T extends Field> T[] array(T[] array) {
         arrayBegin();
         try {
             Class<?> arrayClass = array.getClass().getComponentType();
@@ -692,49 +649,31 @@ public abstract class Struct {
     }
 
     /**
-     * Base implementation of Member
+     * Base implementation of Field
      */
-    protected abstract class AbstractMember extends Member {
-        private final int offset;
+    protected abstract class AbstractMember extends Field {
         protected AbstractMember(int size) {
             this(size, size);
         }
+
         protected AbstractMember(int size, int align, Offset offset) {
-            this.offset = __info.addField(size, align, offset);
+            super(Struct.this, size, align, offset);
         }
+
         protected AbstractMember(int size, int align) {
-            this.offset = __info.addField(size, align);
+            super(Struct.this, size, align);
         }
 
         protected AbstractMember(NativeType type) {
-            final Type t = getRuntime().findType(type);
-            this.offset = __info.addField(t.size() * 8, t.alignment() * 8);
+            super(Struct.this, type);
         }
 
         protected AbstractMember(NativeType type, Offset offset) {
-            final Type t = getRuntime().findType(type);
-            this.offset = __info.addField(t.size() * 8, t.alignment() * 8, offset);
+            super(Struct.this, type, offset);
         }
-
-        public final jnr.ffi.Pointer getMemory() {
-            return __info.getMemory();
-        }
-
-        /**
-         * Gets the <tt>Struct</tt> this <tt>Member</tt> is a member of.
-         *
-         * @return a <tt>Struct</tt>.
-         */
-        public final Struct struct() {
-            return Struct.this;
-        }
-
         /**
          * Gets the offset within the structure for this field.
          */
-        public final long offset() {
-            return offset + __info.getOffset();
-        }
     }
 
     /**
@@ -861,53 +800,30 @@ public abstract class Struct {
     /**
      * Base class for all Number structure fields.
      */
-    public abstract class NumberField extends Member {
+    public abstract class NumberField extends Field {
         /**
          * Offset from the start of the <tt>Struct</tt> memory this field is located at.
          */
-        private final int offset;
         protected final Type type;
 
         protected NumberField(NativeType type) {
+            super(Struct.this, type);
             Type t = this.type = getRuntime().findType(type);
-            this.offset = __info.addField(t.size() * 8, t.alignment() * 8);
         }
 
         protected NumberField(NativeType type, Offset offset) {
+            super(Struct.this, type, offset);
             Type t = this.type = getRuntime().findType(type);
-            this.offset = __info.addField(t.size() * 8, t.alignment() * 8, offset);
         }
 
         protected NumberField(TypeAlias type) {
+            super(Struct.this, type);
             Type t = this.type = getRuntime().findType(type);
-            this.offset = __info.addField(t.size() * 8, t.alignment() * 8);
         }
 
         protected NumberField(TypeAlias type, Offset offset) {
+            super(Struct.this, type, offset);
             Type t = this.type = getRuntime().findType(type);
-            this.offset = __info.addField(t.size() * 8, t.alignment() * 8, offset);
-        }
-
-
-        public final jnr.ffi.Pointer getMemory() {
-            return __info.getMemory();
-        }
-
-
-        /**
-         * Gets the <tt>Struct</tt> this <tt>Member</tt> is in.
-         *
-         * @return a <tt>Struct</tt>.
-         */
-        public final Struct struct() {
-            return Struct.this;
-        }
-
-        /**
-         * Gets the offset within the structure for this field.
-         */
-        public final long offset() {
-            return offset + __info.getOffset();
         }
 
         /**
@@ -2284,6 +2200,11 @@ public abstract class Struct {
         protected final Charset charset;
         protected final int length;
 
+        protected String(NativeType nativeType, int length, Charset cs) {
+            super(nativeType);
+            this.length = length;
+            this.charset = cs;
+        }
         protected String(int size, int align, int length, Charset cs) {
             super(size, align);
             this.length = length;
@@ -2342,8 +2263,7 @@ public abstract class Struct {
         private jnr.ffi.Pointer valueHolder;
 
         public UTFStringRef(int length, Charset cs) {
-            super(getRuntime().findType(NativeType.ADDRESS).size() * 8, getRuntime().findType(NativeType.ADDRESS).alignment() * 8,
-                    length, cs);
+            super(NativeType.ADDRESS, length, cs);
         }
 
         public UTFStringRef(Charset cs) {
@@ -2400,7 +2320,7 @@ public abstract class Struct {
         }
 
         public Padding(NativeType type, int length) {
-            super(getRuntime().findType(type).size() * 8 * length, getRuntime().findType(type).alignment() * 8);
+            this(Struct.this.getRuntime().findType(type), length);
         }
     }
 
